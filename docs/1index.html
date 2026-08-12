@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>15 Puzzle Game - Bright Cyan Edition</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+        }
+
+        /* Puzzle Board Frame & Glassmorphism Shadows */
+        .puzzle-board {
+            position: relative;
+            background-color: rgba(14, 165, 233, 0.25);
+            border: 6px solid #0284c7;
+            box-shadow: inset 0 4px 14px rgba(2, 132, 199, 0.3), 0 12px 30px -5px rgba(14, 165, 233, 0.35);
+            border-radius: 1.5rem;
+            overflow: hidden;
+            touch-action: none;
+            backdrop-filter: blur(8px);
+        }
+
+        .dark .puzzle-board {
+            background-color: rgba(15, 23, 42, 0.85);
+            border-color: #0284c7;
+            box-shadow: inset 0 4px 14px rgba(0, 0, 0, 0.8), 0 12px 30px -5px rgba(2, 132, 199, 0.3);
+        }
+
+        /* Tile Styling */
+        .tile {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            border-radius: 0.6rem;
+            cursor: pointer;
+            transition: top 0.16s cubic-bezier(0.2, 0, 0, 1), 
+                        left 0.16s cubic-bezier(0.2, 0, 0, 1), 
+                        transform 0.12s ease, 
+                        background-color 0.2s, 
+                        border-color 0.2s,
+                        box-shadow 0.2s;
+            will-change: top, left, transform;
+            overflow: hidden;
+        }
+
+        .tile:active {
+            transform: scale(0.95);
+            z-index: 10;
+        }
+
+        /* Number Mode: Correct Position (Vivid Ocean Blue) */
+        .tile-correct {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;
+            color: #ffffff !important;
+            border: 2px solid #7dd3fc !important;
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.6) !important;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        /* Number Mode: Incorrect Position (Crisp White with Cyan Shadow) */
+        .tile-incorrect {
+            background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+            color: #0369a1;
+            border: 2px solid #bae6fd;
+            box-shadow: 0 3px 6px rgba(14, 165, 233, 0.15), inset 0 1px 0 rgba(255,255,255,0.9);
+        }
+
+        .dark .tile-incorrect {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: #e0f2fe;
+            border: 2px solid #0369a1;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        /* Image Mode Tiles */
+        .tile-image-mode {
+            background-repeat: no-repeat;
+            border: 1px solid rgba(2, 132, 199, 0.3);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3), 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* Hide Scrollbar */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-sky-300 via-cyan-200 to-blue-400 dark:from-slate-950 dark:via-sky-950 dark:to-cyan-950 text-slate-800 dark:text-slate-100 min-h-full flex flex-col justify-between transition-colors duration-300">
+
+    <header class="w-full max-w-lg mx-auto pt-4 px-4 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+            <span class="text-2xl drop-shadow">🧩</span>
+            <h1 class="text-xl font-black tracking-wider text-sky-950 dark:text-sky-200 drop-shadow-sm">
+                15 PUZZLE
+            </h1>
+        </div>
+        <div class="flex items-center space-x-2">
+            <!-- Sound Toggle Button -->
+            <button id="sound-btn" class="p-2.5 rounded-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-white/60 dark:border-slate-700 shadow-md hover:bg-white dark:hover:bg-slate-700 transition active:scale-95" title="サウンド切り替え">
+                <span id="sound-icon" class="text-lg">🔊</span>
+            </button>
+            <!-- Dark Mode Toggle Button -->
+            <button id="theme-btn" class="p-2.5 rounded-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-white/60 dark:border-slate-700 shadow-md hover:bg-white dark:hover:bg-slate-700 transition active:scale-95" title="テーマ切り替え">
+                <span id="theme-icon" class="text-lg">🌙</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="w-full max-w-lg mx-auto px-4 py-3 flex-1 flex flex-col justify-center items-center">
+        
+        <!-- Grid Size Selector Pills (3x3 up to 10x10) -->
+        <div class="w-full mb-3">
+            <div class="text-xs font-bold text-sky-900 dark:text-sky-200 mb-1 flex justify-between items-center px-1 drop-shadow-sm">
+                <span>グリッドサイズを選択:</span>
+                <span id="grid-size-label" class="font-extrabold text-sky-700 dark:text-sky-300">4 × 4 (15パズル)</span>
+            </div>
+            <div class="flex space-x-2 overflow-x-auto pb-1 no-scrollbar" id="size-selector-container">
+                <!-- Buttons dynamically populated in JS -->
+            </div>
+        </div>
+
+        <!-- Mode Toggle & Gallery Toolbar -->
+        <div class="w-full flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5 mb-3 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-1.5 rounded-2xl border border-white/70 dark:border-slate-700 shadow-lg">
+            <div class="flex gap-1 flex-1 min-w-[160px]">
+                <button id="mode-number-btn" class="flex-1 py-2 sm:py-1.5 px-3 rounded-xl text-xs font-bold transition bg-sky-500 hover:bg-sky-600 text-white shadow-md">
+                    数字モード
+                </button>
+                <button id="mode-art-btn" class="flex-1 py-2 sm:py-1.5 px-3 rounded-xl text-xs font-bold text-sky-900 dark:text-slate-200 hover:bg-sky-100/60 dark:hover:bg-slate-700/60 transition">
+                    アートモード
+                </button>
+            </div>
+            <!-- Mobile Responsive Art Toolbar Container -->
+            <div id="art-tools-container" class="hidden flex items-center gap-1 w-full sm:w-auto justify-end pt-1 sm:pt-0 border-t sm:border-t-0 border-sky-100 dark:border-slate-700">
+                <button id="toggle-art-numbers-btn" class="flex-1 sm:flex-initial py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-bold bg-sky-50 dark:bg-slate-700 text-sky-800 dark:text-sky-200 border border-sky-200 dark:border-slate-600 hover:bg-sky-100 transition flex items-center justify-center gap-1">
+                    🔢 <span id="art-number-label">数字: OFF</span>
+                </button>
+                <button id="art-gallery-btn" class="flex-1 sm:flex-initial py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-bold bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-700 hover:bg-cyan-200 transition flex items-center justify-center gap-1">
+                    🎨 画像選択
+                </button>
+                <button id="quick-upload-btn" class="flex-1 sm:flex-initial py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-bold bg-teal-100 dark:bg-teal-900/50 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-700 hover:bg-teal-200 transition flex items-center justify-center gap-1">
+                    📁 アップロード
+                </button>
+            </div>
+            <input type="file" id="quick-upload-input" accept="image/*" class="hidden">
+        </div>
+
+        <!-- Game Stats Bar -->
+        <div class="grid grid-cols-3 gap-2 w-full mb-3 bg-white/85 dark:bg-slate-800/85 backdrop-blur-md p-3 rounded-2xl border border-white/80 dark:border-slate-700 shadow-lg text-center">
+            <div>
+                <div class="text-[10px] text-sky-700 dark:text-sky-300 font-extrabold uppercase tracking-wider">手数 (Moves)</div>
+                <div id="move-count" class="text-xl font-black text-slate-800 dark:text-slate-100">0</div>
+            </div>
+            <div>
+                <div class="text-[10px] text-sky-700 dark:text-sky-300 font-extrabold uppercase tracking-wider">時間 (Time)</div>
+                <div id="timer" class="text-xl font-black text-slate-800 dark:text-slate-100">00:00</div>
+            </div>
+            <div>
+                <div class="text-[10px] text-sky-700 dark:text-sky-300 font-extrabold uppercase tracking-wider">正解数 (Fit)</div>
+                <div id="correct-count" class="text-xl font-black text-sky-600 dark:text-sky-400">0 / 15</div>
+            </div>
+        </div>
+
+        <!-- Puzzle Board Wrapper -->
+        <div class="w-full aspect-square max-w-[420px] relative">
+            <div id="board" class="puzzle-board w-full h-full relative">
+                <!-- Tiles generated dynamically -->
+            </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 w-full max-w-[420px] mt-4">
+            <button id="shuffle-btn" class="bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white font-bold py-2.5 px-3 rounded-xl shadow-lg transition flex items-center justify-center gap-1 text-sm border border-sky-300/40">
+                <span>🔄</span> シャッフル
+            </button>
+            <button id="undo-btn" class="bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-700 active:scale-95 text-sky-900 dark:text-slate-100 font-bold py-2.5 px-3 rounded-xl shadow-md backdrop-blur-md transition flex items-center justify-center gap-1 text-sm border border-white/60 dark:border-slate-700">
+                <span>↩️</span> 待った
+            </button>
+            <button id="hint-btn" class="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-95 text-white font-bold py-2.5 px-3 rounded-xl shadow-lg transition flex items-center justify-center gap-1 text-sm border border-amber-200/40">
+                <span>💡</span> ヒント
+            </button>
+        </div>
+
+        <p class="text-[11px] font-medium text-sky-900/80 dark:text-sky-200/70 mt-3 text-center drop-shadow-sm">
+            タップ・スワイプ または 矢印キーで移動できます
+        </p>
+    </main>
+
+    <!-- Art Selection Modal -->
+    <div id="art-modal" class="fixed inset-0 bg-sky-950/60 backdrop-blur-md flex items-center justify-center p-4 hidden z-50 opacity-0 transition-opacity duration-200">
+        <div class="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-3xl p-5 max-w-sm w-full shadow-2xl transform scale-95 transition-transform duration-200 border border-white/60 dark:border-slate-700">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-sky-950 dark:text-slate-100 flex items-center gap-2">
+                    <span>🎨</span> アートを選択
+                </h3>
+                <button id="close-art-modal-btn" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl font-bold">✕</button>
+            </div>
+            
+            <!-- Art Preset Grid -->
+            <div class="grid grid-cols-2 gap-3 mb-4" id="art-presets-container">
+                <!-- Preset buttons generated dynamically -->
+            </div>
+
+            <!-- Custom Image Upload -->
+            <div class="border-t border-sky-100 dark:border-slate-700 pt-3">
+                <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">自分の画像を使う:</label>
+                <div id="dropzone" class="border-2 border-dashed border-sky-300 dark:border-slate-600 rounded-2xl p-4 text-center hover:border-sky-500 dark:hover:border-sky-400 transition cursor-pointer bg-sky-50/50 dark:bg-slate-700/30">
+                    <span class="text-2xl block mb-1">🖼️</span>
+                    <span class="text-xs text-sky-900 dark:text-slate-200 font-medium block">クリック または ドロップして画像を選択</span>
+                    <span class="text-[10px] text-slate-400 block mt-0.5">JPG, PNG, WebP に対応（自動で正方形トリミング）</span>
+                    <input type="file" id="image-upload-input" accept="image/*" class="hidden">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Victory Clear Modal -->
+    <div id="clear-modal" class="fixed inset-0 bg-sky-950/70 backdrop-blur-md flex items-center justify-center p-4 hidden z-50 opacity-0 transition-opacity duration-300">
+        <div id="clear-modal-card" class="bg-white/95 dark:bg-slate-800/95 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl transform scale-95 transition-transform duration-300 border border-white/60 dark:border-slate-700">
+            <div class="w-16 h-16 bg-amber-100 dark:bg-amber-900/50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl animate-bounce shadow-md">
+                🏆
+            </div>
+            <h2 class="text-2xl font-black text-sky-950 dark:text-slate-100 mb-1">STAGE CLEAR!</h2>
+            <p class="text-slate-500 dark:text-slate-400 text-xs mb-4">素晴らしい！パズルが完成しました！</p>
+            
+            <!-- Completed Picture Preview (For Art/Image Mode) -->
+            <div id="completed-art-preview-container" class="hidden mb-4 rounded-2xl overflow-hidden border-2 border-sky-400 shadow-md aspect-square max-w-[200px] mx-auto">
+                <img id="completed-art-img" src="" alt="Completed Puzzle" class="w-full h-full object-cover">
+            </div>
+
+            <!-- Clear Stats Box -->
+            <div class="bg-sky-50/80 dark:bg-slate-700/50 rounded-2xl p-3.5 mb-5 text-left border border-sky-100 dark:border-slate-700/80 space-y-2">
+                <div class="flex justify-between text-xs">
+                    <span class="text-slate-500 dark:text-slate-400">盤面サイズ:</span>
+                    <span id="final-grid" class="font-bold text-sky-900 dark:text-slate-200">4 × 4</span>
+                </div>
+                <div class="flex justify-between text-xs">
+                    <span class="text-slate-500 dark:text-slate-400">クリア手数:</span>
+                    <span id="final-moves" class="font-bold text-sky-900 dark:text-slate-200">0 回</span>
+                </div>
+                <div class="flex justify-between text-xs">
+                    <span class="text-slate-500 dark:text-slate-400">クリア時間:</span>
+                    <span id="final-time" class="font-bold text-sky-900 dark:text-slate-200">00:00</span>
+                </div>
+            </div>
+
+            <button id="modal-restart-btn" class="w-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition active:scale-95 text-sm border border-sky-300/30">
+                もう一度遊ぶ
+            </button>
+        </div>
+    </div>
+
+    <script>
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+            }
+
+            playSlide() {
+                if (navigator.vibrate) {
+                    try { navigator.vibrate(12); } catch(e) {}
+                }
+
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(320, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(180, this.ctx.currentTime + 0.08);
+
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            playVictory() {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.12);
+
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime + idx * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + idx * 0.12 + 0.35);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.12);
+                    osc.stop(this.ctx.currentTime + idx * 0.12 + 0.35);
+                });
+            }
+        }
+
+        const sound = new SoundEngine();
+    </script>
+
+    <script>
+        const ArtGenerators = {
+            presets: [
+                { id: 'ocean', name: 'アクアオーシャン', draw: drawOcean },
+                { id: 'cosmic', name: 'ネオンコズミック', draw: drawCosmic },
+                { id: 'sunset', name: 'サンセットウェーブ', draw: drawSunset },
+                { id: 'aurora', name: 'エメラルドオーロラ', draw: drawAurora },
+                { id: 'cyber', name: 'サイバーグリッド', draw: drawCyber }
+            ],
+            cache: {}
+        };
+
+        function createCanvasArt(drawFn, size = 600) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            drawFn(ctx, size);
+            return canvas.toDataURL();
+        }
+
+        function drawOcean(ctx, size) {
+            const grad = ctx.createLinearGradient(0, 0, size, size);
+            grad.addColorStop(0, '#38bdf8');
+            grad.addColorStop(0.5, '#0284c7');
+            grad.addColorStop(1, '#0369a1');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, size, size);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            for (let i = 0; i < 25; i++) {
+                ctx.beginPath();
+                ctx.arc(Math.random() * size, Math.random() * size, Math.random() * 30 + 10, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawCosmic(ctx, size) {
+            const grad = ctx.createRadialGradient(size/2, size/2, 10, size/2, size/2, size*0.7);
+            grad.addColorStop(0, '#818cf8');
+            grad.addColorStop(0.5, '#c084fc');
+            grad.addColorStop(1, '#0f172a');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, size, size);
+
+            for (let i = 0; i < 60; i++) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.8})`;
+                ctx.beginPath();
+                ctx.arc(Math.random() * size, Math.random() * size, Math.random() * 4 + 1, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawSunset(ctx, size) {
+            const grad = ctx.createLinearGradient(0, 0, 0, size);
+            grad.addColorStop(0, '#f97316');
+            grad.addColorStop(0.4, '#e11d48');
+            grad.addColorStop(0.8, '#7c3aed');
+            grad.addColorStop(1, '#1e1b4b');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, size, size);
+
+            ctx.fillStyle = '#fef08a';
+            ctx.beginPath();
+            ctx.arc(size * 0.5, size * 0.55, size * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawAurora(ctx, size) {
+            ctx.fillStyle = '#064e3b';
+            ctx.fillRect(0, 0, size, size);
+
+            const grad = ctx.createLinearGradient(0, 0, size, size);
+            grad.addColorStop(0, '#10b981');
+            grad.addColorStop(0.5, '#06b6d4');
+            grad.addColorStop(1, '#3b82f6');
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.moveTo(0, size * 0.2);
+            ctx.bezierCurveTo(size * 0.3, size * 0.05, size * 0.7, size * 0.6, size, size * 0.3);
+            ctx.lineTo(size, size);
+            ctx.lineTo(0, size);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawCyber(ctx, size) {
+            ctx.fillStyle = '#090d16';
+            ctx.fillRect(0, 0, size, size);
+
+            ctx.strokeStyle = '#06b6d4';
+            ctx.lineWidth = 2;
+            const step = size / 10;
+            for (let x = 0; x <= size; x += step) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, size);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(0, x);
+                ctx.lineTo(size, x);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#f43f5e';
+            ctx.beginPath();
+            ctx.arc(size/2, size/2, size*0.25, 0, Math.PI*2);
+            ctx.fill();
+        }
+    </script>
+
+    <script>
+        let gridSize = 4;
+        let totalTiles = 16;
+        let boardState = [];
+        let moveHistory = [];
+        let moveCount = 0;
+        let timerSeconds = 0;
+        let timerInterval = null;
+        let isGameStarted = false;
+        let gameMode = 'number';
+        let showArtNumbers = false;
+        let currentArtKey = 'ocean';
+        let tiles = [];
+
+        // DOM Element Cache
+        const boardElement = document.getElementById('board');
+        const moveCountEl = document.getElementById('move-count');
+        const timerEl = document.getElementById('timer');
+        const correctCountEl = document.getElementById('correct-count');
+        const gridSizeLabel = document.getElementById('grid-size-label');
+        const sizeSelectorContainer = document.getElementById('size-selector-container');
+        const modeNumberBtn = document.getElementById('mode-number-btn');
+        const modeArtBtn = document.getElementById('mode-art-btn');
+        const artToolsContainer = document.getElementById('art-tools-container');
+        const toggleArtNumbersBtn = document.getElementById('toggle-art-numbers-btn');
+        const artNumberLabel = document.getElementById('art-number-label');
+        const artGalleryBtn = document.getElementById('art-gallery-btn');
+        const shuffleBtn = document.getElementById('shuffle-btn');
+        const undoBtn = document.getElementById('undo-btn');
+        const hintBtn = document.getElementById('hint-btn');
+        const clearModal = document.getElementById('clear-modal');
+        const clearModalCard = document.getElementById('clear-modal-card');
+        const finalGridEl = document.getElementById('final-grid');
+        const finalMovesEl = document.getElementById('final-moves');
+        const finalTimeEl = document.getElementById('final-time');
+        const modalRestartBtn = document.getElementById('modal-restart-btn');
+        const completedArtPreviewContainer = document.getElementById('completed-art-preview-container');
+        const completedArtImg = document.getElementById('completed-art-img');
+        const artModal = document.getElementById('art-modal');
+        const closeArtModalBtn = document.getElementById('close-art-modal-btn');
+        const artPresetsContainer = document.getElementById('art-presets-container');
+        const dropzone = document.getElementById('dropzone');
+        const imageUploadInput = document.getElementById('image-upload-input');
+        const quickUploadBtn = document.getElementById('quick-upload-btn');
+        const quickUploadInput = document.getElementById('quick-upload-input');
+        const soundBtn = document.getElementById('sound-btn');
+        const themeBtn = document.getElementById('theme-btn');
+
+        function renderSizeSelector() {
+            sizeSelectorContainer.innerHTML = '';
+            for (let s = 3; s <= 10; s++) {
+                const btn = document.createElement('button');
+                btn.className = `px-3 py-1 rounded-xl text-xs font-bold transition whitespace-nowrap shadow-sm ${
+                    s === gridSize 
+                        ? 'bg-sky-500 text-white' 
+                        : 'bg-white/80 dark:bg-slate-800/80 text-sky-900 dark:text-slate-200 border border-white/60 dark:border-slate-700 hover:bg-white'
+                }`;
+                btn.textContent = `${s} × ${s}`;
+                btn.addEventListener('click', () => {
+                    if (gridSize !== s) {
+                        gridSize = s;
+                        totalTiles = gridSize * gridSize;
+                        gridSizeLabel.textContent = `${gridSize} × ${gridSize} (${totalTiles - 1}パズル)`;
+                        renderSizeSelector();
+                        initGame();
+                    }
+                });
+                sizeSelectorContainer.appendChild(btn);
+            }
+        }
+
+        function getActiveImageUrl() {
+            if (ArtGenerators.cache[currentArtKey]) {
+                return ArtGenerators.cache[currentArtKey];
+            }
+            const preset = ArtGenerators.presets.find(p => p.id === currentArtKey);
+            if (preset) {
+                const url = createCanvasArt(preset.draw);
+                ArtGenerators.cache[currentArtKey] = url;
+                return url;
+            }
+            return currentArtKey;
+        }
+
+        function initGame() {
+            stopTimer();
+            isGameStarted = false;
+            moveCount = 0;
+            timerSeconds = 0;
+            moveHistory = [];
+            moveCountEl.textContent = '0';
+            timerEl.textContent = '00:00';
+
+            boardState = Array.from({ length: totalTiles - 1 }, (_, i) => i + 1);
+            boardState.push(0);
+
+            createTileDOM();
+            shuffleBoard();
+            updateTilePositionsDOM();
+        }
+
+        function createTileDOM() {
+            boardElement.innerHTML = '';
+            tiles = [];
+
+            for (let val = 1; val < totalTiles; val++) {
+                const tileEl = document.createElement('div');
+                tileEl.dataset.value = val;
+                
+                tileEl.addEventListener('click', () => {
+                    const currentIndex = boardState.indexOf(val);
+                    handleMove(currentIndex);
+                });
+
+                boardElement.appendChild(tileEl);
+                tiles.push(tileEl);
+            }
+        }
+
+        function updateTilePositionsDOM() {
+            const pad = gridSize >= 6 ? 8 : 12;
+            const gap = gridSize <= 4 ? 8 : gridSize <= 6 ? 6 : gridSize <= 8 ? 4 : 2;
+            const totalConstantSpace = (2 * pad) + ((gridSize - 1) * gap);
+            const activeImageUrl = getActiveImageUrl();
+
+            let correctCount = 0;
+
+            tiles.forEach((tileEl) => {
+                const tileVal = parseInt(tileEl.dataset.value, 10);
+                const index = boardState.indexOf(tileVal);
+                
+                if (index === -1) return;
+
+                const row = Math.floor(index / gridSize);
+                const col = index % gridSize;
+
+                const calcWidth = `calc((100% - ${totalConstantSpace}px) / ${gridSize})`;
+                const calcLeft = `calc(${pad + col * gap}px + ${col} * (100% - ${totalConstantSpace}px) / ${gridSize})`;
+                const calcTop = `calc(${pad + row * gap}px + ${row} * (100% - ${totalConstantSpace}px) / ${gridSize})`;
+
+                tileEl.style.width = calcWidth;
+                tileEl.style.height = calcWidth;
+                tileEl.style.left = calcLeft;
+                tileEl.style.top = calcTop;
+
+                const fontSizeClass = gridSize <= 3 ? 'text-3xl sm:text-4xl font-black' :
+                                      gridSize <= 4 ? 'text-2xl sm:text-3xl font-black' :
+                                      gridSize <= 5 ? 'text-xl sm:text-2xl font-bold' :
+                                      gridSize <= 6 ? 'text-base sm:text-lg font-bold' :
+                                      gridSize <= 8 ? 'text-xs sm:text-sm font-bold' : 'text-[10px] font-semibold';
+
+                const borderRadius = gridSize >= 8 ? 'rounded' : gridSize >= 6 ? 'rounded-md' : 'rounded-xl';
+
+                const isCorrect = tileVal === (index + 1);
+                if (isCorrect) correctCount++;
+
+                if (gameMode === 'number') {
+                    tileEl.style.backgroundImage = 'none';
+                    tileEl.textContent = tileVal;
+                    
+                    if (isCorrect) {
+                        tileEl.className = `tile ${borderRadius} ${fontSizeClass} tile-correct`;
+                    } else {
+                        tileEl.className = `tile ${borderRadius} ${fontSizeClass} tile-incorrect`;
+                    }
+                } else {
+                    tileEl.textContent = showArtNumbers ? tileVal : '';
+                    const artTextStyling = showArtNumbers ? ` ${fontSizeClass} text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] font-black` : '';
+                    tileEl.className = `tile ${borderRadius} tile-image-mode ${isCorrect ? 'ring-2 ring-sky-400 ring-offset-1 dark:ring-offset-slate-900' : ''}${artTextStyling}`;
+
+                    if (activeImageUrl) {
+                        tileEl.style.backgroundImage = `url(${activeImageUrl})`;
+                        tileEl.style.backgroundSize = `${gridSize * 100}% ${gridSize * 100}%`;
+                        
+                        const origIndex = tileVal - 1;
+                        const origRow = Math.floor(origIndex / gridSize);
+                        const origCol = origIndex % gridSize;
+                        
+                        const bgX = (origCol / (gridSize - 1)) * 100;
+                        const bgY = (origRow / (gridSize - 1)) * 100;
+                        tileEl.style.backgroundPosition = `${bgX}% ${bgY}%`;
+                    }
+                }
+            });
+
+            correctCountEl.textContent = `${correctCount} / ${totalTiles - 1}`;
+        }
+
+        function shuffleBoard() {
+            const shuffleSteps = gridSize * gridSize * 30;
+            for (let i = 0; i < shuffleSteps; i++) {
+                const emptyIndex = boardState.indexOf(0);
+                const validMoves = getMovableIndices(emptyIndex);
+                const randomTarget = validMoves[Math.floor(Math.random() * validMoves.length)];
+                
+                [boardState[emptyIndex], boardState[randomTarget]] = [boardState[randomTarget], boardState[emptyIndex]];
+            }
+        }
+
+        function getMovableIndices(emptyIndex) {
+            const row = Math.floor(emptyIndex / gridSize);
+            const col = emptyIndex % gridSize;
+            const valid = [];
+
+            if (row > 0) valid.push(emptyIndex - gridSize);
+            if (row < gridSize - 1) valid.push(emptyIndex + gridSize);
+            if (col > 0) valid.push(emptyIndex - 1);
+            if (col < gridSize - 1) valid.push(emptyIndex + 1);
+
+            return valid;
+        }
+
+        function handleMove(clickedIndex) {
+            const emptyIndex = boardState.indexOf(0);
+            
+            if (isAdjacent(clickedIndex, emptyIndex)) {
+                if (!isGameStarted) {
+                    startTimer();
+                    isGameStarted = true;
+                }
+
+                moveHistory.push([...boardState]);
+
+                [boardState[clickedIndex], boardState[emptyIndex]] = [boardState[emptyIndex], boardState[clickedIndex]];
+
+                moveCount++;
+                moveCountEl.textContent = moveCount;
+
+                sound.playSlide();
+                updateTilePositionsDOM();
+
+                checkWinCondition();
+            }
+        }
+
+        function isAdjacent(idx1, idx2) {
+            const r1 = Math.floor(idx1 / gridSize);
+            const c1 = idx1 % gridSize;
+            const r2 = Math.floor(idx2 / gridSize);
+            const c2 = idx2 % gridSize;
+
+            return (Math.abs(r1 - r2) === 1 && c1 === c2) || (Math.abs(c1 - c2) === 1 && r1 === r2);
+        }
+
+        function undoMove() {
+            if (moveHistory.length > 0) {
+                boardState = moveHistory.pop();
+                moveCount = Math.max(0, moveCount - 1);
+                moveCountEl.textContent = moveCount;
+                sound.playSlide();
+                updateTilePositionsDOM();
+            }
+        }
+
+        function showHint() {
+            const emptyIndex = boardState.indexOf(0);
+            const movable = getMovableIndices(emptyIndex);
+            if (movable.length === 0) return;
+
+            const hintIndex = movable[Math.floor(Math.random() * movable.length)];
+            const tileVal = boardState[hintIndex];
+            const tileEl = tiles.find(t => parseInt(t.dataset.value, 10) === tileVal);
+
+            if (tileEl) {
+                tileEl.classList.add('ring-4', 'ring-amber-400');
+                setTimeout(() => {
+                    tileEl.classList.remove('ring-4', 'ring-amber-400');
+                }, 800);
+            }
+        }
+
+        function checkWinCondition() {
+            const isSolved = boardState.every((val, idx) => {
+                if (idx === totalTiles - 1) return val === 0;
+                return val === idx + 1;
+            });
+
+            if (isSolved) {
+                stopTimer();
+                sound.playVictory();
+                showClearModal();
+            }
+        }
+
+        function startTimer() {
+            stopTimer();
+            timerSeconds = 0;
+            timerEl.textContent = '00:00';
+            timerInterval = setInterval(() => {
+                timerSeconds++;
+                const mins = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+                const secs = String(timerSeconds % 60).padStart(2, '0');
+                timerEl.textContent = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function showClearModal() {
+            finalGridEl.textContent = `${gridSize} × ${gridSize}`;
+            finalMovesEl.textContent = `${moveCount} 回`;
+            finalTimeEl.textContent = timerEl.textContent;
+
+            if (gameMode === 'art') {
+                completedArtImg.src = getActiveImageUrl();
+                completedArtPreviewContainer.classList.remove('hidden');
+            } else {
+                completedArtPreviewContainer.classList.add('hidden');
+            }
+
+            clearModal.classList.remove('hidden');
+            setTimeout(() => {
+                clearModal.classList.remove('opacity-0');
+                clearModalCard.classList.remove('scale-95');
+                clearModalCard.classList.add('scale-100');
+            }, 10);
+        }
+
+        function hideClearModal() {
+            clearModal.classList.add('opacity-0');
+            clearModalCard.classList.remove('scale-100');
+            clearModalCard.classList.add('scale-95');
+            setTimeout(() => {
+                clearModal.classList.add('hidden');
+            }, 200);
+        }
+
+        function populateArtGallery() {
+            artPresetsContainer.innerHTML = '';
+            ArtGenerators.presets.forEach(preset => {
+                const btn = document.createElement('button');
+                btn.className = 'flex flex-col items-center p-2 rounded-2xl border border-sky-200 dark:border-slate-700 hover:border-sky-500 transition group bg-sky-50/50 dark:bg-slate-700/50';
+                
+                const imgUrl = createCanvasArt(preset.draw, 120);
+                btn.innerHTML = `
+                    <div class="w-full aspect-square rounded-xl overflow-hidden mb-1.5 border border-sky-200 dark:border-slate-600">
+                        <img src="${imgUrl}" alt="${preset.name}" class="w-full h-full object-cover group-hover:scale-105 transition">
+                    </div>
+                    <span class="text-[11px] font-bold text-sky-900 dark:text-slate-200">${preset.name}</span>
+                `;
+
+                btn.addEventListener('click', () => {
+                    currentArtKey = preset.id;
+                    updateTilePositionsDOM();
+                    closeArtModal();
+                });
+
+                artPresetsContainer.appendChild(btn);
+            });
+        }
+
+        function openArtModal() {
+            populateArtGallery();
+            artModal.classList.remove('hidden');
+            setTimeout(() => artModal.classList.remove('opacity-0'), 10);
+        }
+
+        function closeArtModal() {
+            artModal.classList.add('opacity-0');
+            setTimeout(() => artModal.classList.add('hidden'), 200);
+        }
+
+        function processAndSetImageFile(file) {
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const size = 600;
+                    canvas.width = size;
+                    canvas.height = size;
+                    const ctx = canvas.getContext('2d');
+
+                    const minDim = Math.min(img.width, img.height);
+                    const sx = (img.width - minDim) / 2;
+                    const sy = (img.height - minDim) / 2;
+
+                    ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+                    
+                    const croppedUrl = canvas.toDataURL('image/jpeg', 0.9);
+                    currentArtKey = croppedUrl;
+
+                    if (gameMode !== 'art') {
+                        modeArtBtn.click();
+                    } else {
+                        updateTilePositionsDOM();
+                    }
+                    closeArtModal();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        if (dropzone) {
+            dropzone.addEventListener('click', () => imageUploadInput.click());
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropzone.classList.add('border-sky-500', 'bg-sky-100/50', 'dark:bg-sky-900/30');
+            });
+            dropzone.addEventListener('dragleave', () => {
+                dropzone.classList.remove('border-sky-500', 'bg-sky-100/50', 'dark:bg-sky-900/30');
+            });
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('border-sky-500', 'bg-sky-100/50', 'dark:bg-sky-900/30');
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    processAndSetImageFile(e.dataTransfer.files[0]);
+                }
+            });
+        }
+
+        imageUploadInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                processAndSetImageFile(e.target.files[0]);
+            }
+        });
+
+        quickUploadBtn.addEventListener('click', () => quickUploadInput.click());
+        quickUploadInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                processAndSetImageFile(e.target.files[0]);
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            const emptyIndex = boardState.indexOf(0);
+            const row = Math.floor(emptyIndex / gridSize);
+            const col = emptyIndex % gridSize;
+            let targetIndex = -1;
+
+            switch (e.key) {
+                case 'ArrowUp':
+                    if (row < gridSize - 1) targetIndex = emptyIndex + gridSize;
+                    break;
+                case 'ArrowDown':
+                    if (row > 0) targetIndex = emptyIndex - gridSize;
+                    break;
+                case 'ArrowLeft':
+                    if (col < gridSize - 1) targetIndex = emptyIndex + 1;
+                    break;
+                case 'ArrowRight':
+                    if (col > 0) targetIndex = emptyIndex - 1;
+                    break;
+            }
+
+            if (targetIndex !== -1) {
+                e.preventDefault();
+                handleMove(targetIndex);
+            }
+        });
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        boardElement.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        boardElement.addEventListener('touchend', (e) => {
+            if (!touchStartX || !touchStartY) return;
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+
+            const dx = touchEndX - touchStartX;
+            const dy = touchEndY - touchStartY;
+
+            if (Math.max(Math.abs(dx), Math.abs(dy)) > 30) {
+                const emptyIndex = boardState.indexOf(0);
+                const row = Math.floor(emptyIndex / gridSize);
+                const col = emptyIndex % gridSize;
+                let targetIndex = -1;
+
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    if (dx > 0 && col > 0) targetIndex = emptyIndex - 1;
+                    else if (dx < 0 && col < gridSize - 1) targetIndex = emptyIndex + 1;
+                } else {
+                    if (dy > 0 && row > 0) targetIndex = emptyIndex - gridSize;
+                    else if (dy < 0 && row < gridSize - 1) targetIndex = emptyIndex + gridSize;
+                }
+
+                if (targetIndex !== -1) handleMove(targetIndex);
+            }
+
+            touchStartX = 0;
+            touchStartY = 0;
+        });
+
+        modeNumberBtn.addEventListener('click', () => {
+            gameMode = 'number';
+            modeNumberBtn.className = 'flex-1 py-2 sm:py-1.5 px-3 rounded-xl text-xs font-bold transition bg-sky-500 text-white shadow-md';
+            modeArtBtn.className = 'flex-1 py-2 sm:py-1.5 px-3 rounded-xl text-xs font-bold text-sky-900 dark:text-slate-200 hover:bg-sky-100/60 dark:hover:bg-slate-700/60 transition';
+            if (artToolsContainer) artToolsContainer.classList.add('hidden');
+            updateTilePositionsDOM();
+        });
+
+        modeArtBtn.addEventListener('click', () => {
+            gameMode = 'art';
+            modeArtBtn.className = 'flex-1 py-2 sm:py-1.5 px-3 rounded-xl text-xs font-bold transition bg-sky-500 text-white shadow-md';
+            modeNumberBtn.className = 'flex-1 py-2 sm:py-1.5 px-3 rounded-xl text-xs font-bold text-sky-900 dark:text-slate-200 hover:bg-sky-100/60 dark:hover:bg-slate-700/60 transition';
+            if (artToolsContainer) artToolsContainer.classList.remove('hidden');
+            updateTilePositionsDOM();
+        });
+
+        toggleArtNumbersBtn.addEventListener('click', () => {
+            showArtNumbers = !showArtNumbers;
+            artNumberLabel.textContent = `数字: ${showArtNumbers ? 'ON' : 'OFF'}`;
+            if (showArtNumbers) {
+                toggleArtNumbersBtn.classList.add('bg-sky-100', 'dark:bg-sky-900/50', 'border-sky-300', 'text-sky-800', 'dark:text-sky-200');
+            } else {
+                toggleArtNumbersBtn.classList.remove('bg-sky-100', 'dark:bg-sky-900/50', 'border-sky-300', 'text-sky-800', 'dark:text-sky-200');
+            }
+            updateTilePositionsDOM();
+        });
+
+        artGalleryBtn.addEventListener('click', openArtModal);
+        closeArtModalBtn.addEventListener('click', closeArtModal);
+        shuffleBtn.addEventListener('click', initGame);
+        undoBtn.addEventListener('click', undoMove);
+        hintBtn.addEventListener('click', showHint);
+        modalRestartBtn.addEventListener('click', () => {
+            hideClearModal();
+            initGame();
+        });
+
+        soundBtn.addEventListener('click', () => {
+            sound.enabled = !sound.enabled;
+            document.getElementById('sound-icon').textContent = sound.enabled ? '🔊' : '🔇';
+        });
+
+        themeBtn.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            document.getElementById('theme-icon').textContent = isDark ? '☀️' : '🌙';
+        });
+
+        // App Entry Point
+        window.onload = function() {
+            renderSizeSelector();
+            initGame();
+        };
+    </script>
+</body>
+</html>
