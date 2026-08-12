@@ -3,11 +3,425 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>トップページ</title>
+    <title>15パズルゲーム (15 Puzzle)</title>
+    <!-- Tailwind CSS CDN を読み込み -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* フォントファミリー設定 */
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            user-select: none; /* ドラッグ時のテキスト選択を防止 */
+            -webkit-user-select: none;
+        }
+
+        /* 15パズルの盤面アニメーションとグリッド設定 */
+        .grid-board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        /* タイルのスタイルとトランジション効果 */
+        .tile {
+            transition: all 0.15s ease-in-out;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .tile:active {
+            transform: scale(0.95);
+        }
+
+        /* 正しい位置にあるタイルのスタイル */
+        .tile-correct {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+        }
+
+        /* 誤った位置にあるタイルのスタイル */
+        .tile-incorrect {
+            background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+            color: white;
+        }
+
+        /* 空白マスのスタイル */
+        .tile-empty {
+            background-color: rgba(229, 231, 235, 0.5);
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+        }
+    </style>
 </head>
-<body>
+<body class="bg-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
 
-    <h1>こんにちは、user07 さん</h1>
+    <!-- メインコンテンツカード -->
+    <div class="bg-white rounded-3xl shadow-xl p-6 sm:p-8 max-w-md w-full flex flex-col items-center">
+        
+        <!-- タイトルエリア -->
+        <h1 class="text-3xl font-extrabold text-slate-800 mb-2 tracking-wide">15 PUZZLE</h1>
+        <p class="text-slate-500 text-sm mb-6 text-center">数字を順番（1〜15）に並べ替えよう！</p>
 
+        <!-- ゲームステータス表示エリア（手数・タイム） -->
+        <div class="flex justify-between w-full mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <!-- 手数カウンタ -->
+            <div class="flex flex-col items-center w-1/2 border-r border-slate-200">
+                <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">手数 (Moves)</span>
+                <span id="move-count" class="text-2xl font-bold text-slate-700">0</span>
+            </div>
+            <!-- タイムカウンタ -->
+            <div class="flex flex-col items-center w-1/2">
+                <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">時間 (Time)</span>
+                <span id="timer" class="text-2xl font-bold text-slate-700">00:00</span>
+            </div>
+        </div>
+
+        <!-- パズル盤面コンテナ -->
+        <div id="board" class="grid-board w-full aspect-square bg-slate-200 p-3 rounded-2xl mb-6 shadow-inner relative">
+            <!-- JavaScriptで動的に16個のタイルが生成されます -->
+        </div>
+
+        <!-- コントロールボタン群 -->
+        <div class="flex gap-3 w-full">
+            <button id="shuffle-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-150 flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                シャッフル
+            </button>
+        </div>
+
+        <!-- 操作説明のヒント -->
+        <p class="text-xs text-slate-400 mt-4 text-center">
+            タイルをタップまたはキーボードの [矢印キー] で移動できます
+        </p>
+    </div>
+
+    <!-- ゲームクリア時のモーダルダイアログ（初期状態は非表示） -->
+    <div id="clear-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl transform scale-95 transition-transform duration-300" id="modal-content">
+            <div class="w-16 h-16 bg-yellow-100 text-yellow-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                🏆
+            </div>
+            <h2 class="text-2xl font-bold text-slate-800 mb-1">STAGE CLEAR!</h2>
+            <p class="text-slate-500 text-sm mb-6">おめでとうございます！クリアです！</p>
+            
+            <div class="bg-slate-50 rounded-2xl p-4 mb-6 text-left border border-slate-100">
+                <div class="flex justify-between py-1 text-sm">
+                    <span class="text-slate-500">クリア手数:</span>
+                    <span id="final-moves" class="font-bold text-slate-800">0 回</span>
+                </div>
+                <div class="flex justify-between py-1 text-sm border-t border-slate-200 mt-1 pt-1">
+                    <span class="text-slate-500">クリア時間:</span>
+                    <span id="final-time" class="font-bold text-slate-800">00:00</span>
+                </div>
+            </div>
+
+            <button id="modal-restart-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-150">
+                もう一度遊ぶ
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 15パズルゲーム ロジック
+         */
+
+        // 定数定義：盤面のサイズ（4×4）
+        const GRID_SIZE = 4;
+        const TOTAL_TILES = GRID_SIZE * GRID_SIZE; // 16マス
+
+        // ゲームの状態管理用変数
+        let boardState = [];  // 現在のタイルの配置（0は空白マス）
+        let moveCount = 0;    // 移動回数
+        let timerSeconds = 0; // 経過秒数
+        let timerInterval = null; // タイマーのインターバルID
+        let isGameStarted = false; // ゲームが開始されたかどうかのフラグ
+
+        // DOM要素の取得
+        const boardElement = document.getElementById('board');
+        const moveCountElement = document.getElementById('move-count');
+        const timerElement = document.getElementById('timer');
+        const shuffleBtn = document.getElementById('shuffle-btn');
+        const clearModal = document.getElementById('clear-modal');
+        const modalContent = document.getElementById('modal-content');
+        const finalMovesElement = document.getElementById('final-moves');
+        const finalTimeElement = document.getElementById('final-time');
+        const modalRestartBtn = document.getElementById('modal-restart-btn');
+
+        /**
+         * ゲームの初期化処理
+         */
+        function initGame() {
+            // 正解の状態（1〜15, 最後に0）で初期化
+            boardState = Array.from({ length: TOTAL_TILES - 1 }, (_, i) => i + 1);
+            boardState.push(0); // 0が空白マスを表します
+
+            // シャッフルを行ってゲーム開始可能な状態にする
+            shuffleBoard();
+            
+            // カウンタとタイマーのリセット
+            resetStats();
+
+            // 盤面を描画
+            renderBoard();
+        }
+
+        /**
+         * 盤面をランダムにシャッフルする関数
+         * （解法が存在しない状態を避けるため、空白マスのランダム移動を繰り返して作成）
+         */
+        function shuffleBoard() {
+            // 完成状態から有効な移動をランダムに200回行いシャッフルする
+            const moves = 200;
+            for (let i = 0; i < moves; i++) {
+                const emptyIndex = boardState.indexOf(0);
+                const validMoves = getValidMovableIndices(emptyIndex);
+                // 有効な移動先からランダムに1つ選んで交換
+                const randomMoveIndex = validMoves[Math.floor(Math.random() * validMoves.length)];
+                
+                // タイルを入れ替え
+                [boardState[emptyIndex], boardState[randomMoveIndex]] = [boardState[randomMoveIndex], boardState[emptyIndex]];
+            }
+        }
+
+        /**
+         * 空白マスに隣接する（動かすことができる）マスのインデックス配列を取得
+         * @param {number} emptyIndex 空白マスの現在のインデックス
+         * @returns {Array<number>} 移動可能なインデックスの配列
+         */
+        function getValidMovableIndices(emptyIndex) {
+            const row = Math.floor(emptyIndex / GRID_SIZE);
+            const col = emptyIndex % GRID_SIZE;
+            const validIndices = [];
+
+            // 上のマス
+            if (row > 0) validIndices.push(emptyIndex - GRID_SIZE);
+            // 下のマス
+            if (row < GRID_SIZE - 1) validIndices.push(emptyIndex + GRID_SIZE);
+            // 左のマス
+            if (col > 0) validIndices.push(emptyIndex - 1);
+            // 右のマス
+            if (col < GRID_SIZE - 1) validIndices.push(emptyIndex + 1);
+
+            return validIndices;
+        }
+
+        /**
+         * 盤面のHTML要素を描画・更新する関数
+         */
+        function renderBoard() {
+            boardElement.innerHTML = ''; // 盤面を一度クリア
+
+            boardState.forEach((value, index) => {
+                const tile = document.createElement('div');
+                tile.classList.add('tile', 'rounded-xl', 'font-bold', 'text-2xl', 'sm:text-3xl', 'flex', 'items-center', 'justify-center', 'cursor-pointer');
+
+                if (value === 0) {
+                    // 空白マスのスタイル
+                    tile.classList.add('tile-empty');
+                } else {
+                    // 完成位置にあるかどうかで色を変更（視覚的なフィードバック）
+                    const isCorrectPosition = (value === index + 1);
+                    if (isCorrectPosition) {
+                        tile.classList.add('tile-correct');
+                    } else {
+                        tile.classList.add('tile-incorrect');
+                    }
+                    tile.textContent = value;
+
+                    // クリック/タップイベントを設定
+                    tile.addEventListener('click', () => handleTileClick(index));
+                }
+
+                boardElement.appendChild(tile);
+            });
+        }
+
+        /**
+         * タイルがクリックされた時の処理
+         * @param {number} clickedIndex クリックされたタイルのインデックス
+         */
+        function handleTileClick(clickedIndex) {
+            const emptyIndex = boardState.indexOf(0);
+            
+            // クリックされたタイルが空白マスの隣にあるかチェック
+            if (isAdjacent(clickedIndex, emptyIndex)) {
+                // タイマー未スタートなら計測開始
+                if (!isGameStarted) {
+                    startTimer();
+                    isGameStarted = true;
+                }
+
+                // 位置を交換
+                [boardState[clickedIndex], boardState[emptyIndex]] = [boardState[emptyIndex], boardState[clickedIndex]];
+
+                // 手数を増やす
+                moveCount++;
+                moveCountElement.textContent = moveCount;
+
+                // 盤面を再描画
+                renderBoard();
+
+                // クリア判定
+                checkWinCondition();
+            }
+        }
+
+        /**
+         * 2つのインデックスが上下左右で隣接しているか判定する関数
+         */
+        function isAdjacent(index1, index2) {
+            const row1 = Math.floor(index1 / GRID_SIZE);
+            const col1 = index1 % GRID_SIZE;
+            const row2 = Math.floor(index2 / GRID_SIZE);
+            const col2 = index2 % GRID_SIZE;
+
+            const rowDiff = Math.abs(row1 - row2);
+            const colDiff = Math.abs(col1 - col2);
+
+            // 同じ行で隣の列、または同じ列で隣の行の場合に true
+            return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+        }
+
+        /**
+         * タイマーの計測を開始する関数
+         */
+        function startTimer() {
+            stopTimer(); // 既存のタイマーを停止
+            timerSeconds = 0;
+            updateTimerDisplay();
+
+            timerInterval = setInterval(() => {
+                timerSeconds++;
+                updateTimerDisplay();
+            }, 1000);
+        }
+
+        /**
+         * タイマーの計測を停止する関数
+         */
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        /**
+         * タイマーの表示を「MM:SS」形式にフォーマットして更新
+         */
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timerSeconds / 60);
+            const seconds = timerSeconds % 60;
+            const formattedMinutes = String(minutes).padStart(2, '0');
+            const formattedSeconds = String(seconds).padStart(2, '0');
+            timerElement.textContent = `${formattedMinutes}:${formattedSeconds}`;
+        }
+
+        /**
+         * 手数とタイマーを初期状態にリセットする関数
+         */
+        function resetStats() {
+            stopTimer();
+            isGameStarted = false;
+            moveCount = 0;
+            timerSeconds = 0;
+            moveCountElement.textContent = '0';
+            timerElement.textContent = '00:00';
+        }
+
+        /**
+         * パズルが完成しているかチェックする関数
+         */
+        function checkWinCondition() {
+            // 配列の要素が 1, 2, ..., 15, 0 の順番になっているか検証
+            const isSolved = boardState.every((value, index) => {
+                if (index === TOTAL_TILES - 1) {
+                    return value === 0; // 最後のマスは空白 (0)
+                }
+                return value === index + 1;
+            });
+
+            if (isSolved) {
+                stopTimer(); // タイマー停止
+                showClearModal(); // クリア画面の表示
+            }
+        }
+
+        /**
+         * クリア時のモーダルを表示する関数
+         */
+        function showClearModal() {
+            finalMovesElement.textContent = `${moveCount} 回`;
+            finalTimeElement.textContent = timerElement.textContent;
+
+            // モーダルをふわっと表示させる（Tailwind クラス操作）
+            clearModal.classList.remove('hidden');
+            setTimeout(() => {
+                clearModal.classList.remove('opacity-0');
+                modalContent.classList.remove('scale-95');
+                modalContent.classList.add('scale-100');
+            }, 10);
+        }
+
+        /**
+         * クリアモーダルを非表示にする関数
+         */
+        function hideClearModal() {
+            clearModal.classList.add('opacity-0');
+            modalContent.classList.remove('scale-100');
+            modalContent.classList.add('scale-95');
+            setTimeout(() => {
+                clearModal.classList.add('hidden');
+            }, 300);
+        }
+
+        /**
+         * キーボードの矢印キー操作の対応
+         */
+        document.addEventListener('keydown', (event) => {
+            const emptyIndex = boardState.indexOf(0);
+            const emptyRow = Math.floor(emptyIndex / GRID_SIZE);
+            const emptyCol = emptyIndex % GRID_SIZE;
+            let targetIndex = -1;
+
+            // 押された矢印キーに応じて、空白マスの「反対方向」にあるタイルを空白へ移動させる
+            switch (event.key) {
+                case 'ArrowUp': // 上キー：空白の「下」にあるタイルを上に移動
+                    if (emptyRow < GRID_SIZE - 1) targetIndex = emptyIndex + GRID_SIZE;
+                    break;
+                case 'ArrowDown': // 下キー：空白の「上」にあるタイルを下に移動
+                    if (emptyRow > 0) targetIndex = emptyIndex - GRID_SIZE;
+                    break;
+                case 'ArrowLeft': // 左キー：空白の「右」にあるタイルを左に移動
+                    if (emptyCol < GRID_SIZE - 1) targetIndex = emptyIndex + 1;
+                    break;
+                case 'ArrowRight': // 右キー：空白の「左」にあるタイルを右に移動
+                    if (emptyCol > 0) targetIndex = emptyIndex - 1;
+                    break;
+            }
+
+            if (targetIndex !== -1) {
+                event.preventDefault(); // デフォルトのスクロール動作を防止
+                handleTileClick(targetIndex);
+            }
+        });
+
+        // ボタンのイベントリスナー設定
+        shuffleBtn.addEventListener('click', () => {
+            hideClearModal();
+            initGame();
+        });
+
+        modalRestartBtn.addEventListener('click', () => {
+            hideClearModal();
+            initGame();
+        });
+
+        // ページロード完了時にゲームを開始
+        window.onload = function() {
+            initGame();
+        };
+    </script>
 </body>
 </html>
